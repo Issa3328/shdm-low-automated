@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from "react";
 
 const SUPABASE_URL      = "https://iljzwxwopxuzpgkjivmn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_KEoCJtCLyGTJjqB1phGy2Q_v3PftUYH";
-const S_SESSION = "shdm_low_manual_session_id";
-const FLOW      = "low_manual";
+const S_SESSION = "shdm_low_automated_session_id";
+const FLOW      = "low_automated";
 
-const ACQ_CATS = [
+const ACQ_CATS  = [
   { id: "sensors",   label: "Home Sensors" },
   { id: "behavior",  label: "Behavior Patterns" },
   { id: "purchases", label: "Purchase History" },
@@ -16,11 +16,12 @@ const PROC_CATS = [
   { id: "wellness", label: "Wellness Services" },
 ];
 const OFFERS = [
-  { id: "1", emoji: "🍕", name: "Pizza Meal",     desc: "2 Large Pizzas, 2 Pops, Large Fries",    price: 24.99, original: 32.99 },
-  { id: "2", emoji: "🍔", name: "Burger Combo",   desc: "2 Burgers, 2 Fries, 2 Drinks",           price: 18.99, original: 24.99 },
-  { id: "3", emoji: "🥡", name: "Chinese Dinner", desc: "Fried Rice, Noodles, Spring Rolls",       price: 32.99, original: 38.99 },
-  { id: "4", emoji: "🍝", name: "Pasta Bowl",     desc: "Pasta, Garlic Bread, Salad",              price: 16.99, original: 21.99 },
+  { id: "1", emoji: "🍕", name: "Pizza Meal",     price: 24.99 },
+  { id: "2", emoji: "🍔", name: "Burger Combo",   price: 18.99 },
+  { id: "3", emoji: "🥡", name: "Chinese Dinner", price: 32.99 },
+  { id: "4", emoji: "🍝", name: "Pasta Bowl",     price: 16.99 },
 ];
+const TOP_OFFER = OFFERS[0];
 
 const TASKS = [
   { id: "task1", label: "Task 1", desc: "Review the suggested settings in the Data Collection and Data Usage tabs and adjust them according to your preferences." },
@@ -29,6 +30,10 @@ const TASKS = [
   { id: "task4", label: "Task 4", desc: "Review all three tabs: Food, Home, and Wellness. Explore and select one offer that best matches your preferences." },
   { id: "task5", label: "Task 5", desc: "Review the final order summary and confirm or place the order." },
 ];
+
+// Automated: everything allow
+const DEFAULT_ACQ  = { sensors: "allow", behavior: "allow", purchases: "allow" };
+const DEFAULT_PROC = { food: "allow", home: "allow", wellness: "allow" };
 
 function getOrCreateSessionId() {
   try {
@@ -65,7 +70,6 @@ function createTracker(sessionId) {
     click()    { s.clicks++; },
     error()    { s.errors++; },
     override() { s.clicks++; s.overrides++; },
-    depth(d)   { if (d > s.depth) s.depth = d; },
     complete(offerName = null, orderPlaced = false) {
       if (!s.task) return null;
       const time_ms = Date.now() - s.start;
@@ -92,7 +96,7 @@ const CSS = `
   .task-cb { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #d1d5db; flex-shrink: 0; margin-top: 2px; display: flex; align-items: center; justify-content: center; font-size: 10px; }
   .task-cb.done { background: #16a34a; border-color: #16a34a; color: #fff; }
   .task-cb.active { border-color: #4263eb; }
-  .task-lbl { font-size: 12px; font-weight: 600; color: #111827; }
+  .task-lbl { font-size: 12px; font-weight: 600; }
   .task-desc { font-size: 11px; color: #6b7280; margin-top: 2px; line-height: 1.4; }
   .content-area { flex: 1; display: flex; justify-content: center; background: #f5f6fa; }
   .main { width: 100%; max-width: 600px; padding: 24px; }
@@ -101,10 +105,10 @@ const CSS = `
   .task-banner-desc { font-size: 13px; line-height: 1.5; }
   .btn-task-done { display: block; width: 100%; margin-top: 10px; padding: 11px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
   .btn-task-done:hover { background: #4338ca; }
-  .page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
-  .page-sub { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
   .back { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; color: #6b7280; cursor: pointer; margin-bottom: 16px; }
   .back:hover { color: #4263eb; }
+  .page-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .page-sub { font-size: 13px; color: #6b7280; margin-bottom: 20px; }
   .tabs { display: flex; border-bottom: 2px solid #e4e6ef; margin-bottom: 16px; }
   .tab { flex: 1; text-align: center; padding: 10px 8px; font-size: 14px; font-weight: 500; color: #6b7280; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; }
   .tab.active { color: #4263eb; border-bottom-color: #4263eb; }
@@ -114,14 +118,14 @@ const CSS = `
   .da-btn { padding: 5px 14px; border-radius: 7px; border: 1.5px solid #e4e6ef; background: #fff; font-size: 12px; font-weight: 500; cursor: pointer; font-family: inherit; color: #6b7280; }
   .da-deny.on  { background: #fee2e2; border-color: #fca5a5; color: #dc2626; }
   .da-allow.on { background: #dcfce7; border-color: #86efac; color: #16a34a; }
-  .save-row { display: flex; justify-content: flex-end; margin: 8px 0; }
-  .btn-save { padding: 9px 22px; background: #4263eb; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
-  .btn-save.saved { background: #16a34a; }
-  .btn-done { display: block; width: 100%; padding: 14px; background: #16a34a; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
+  .hint-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #1e40af; margin-bottom: 14px; }
+  .auto-banner { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; font-size: 13px; color: #1e40af; }
   .off-card { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: #fff; border: 1px solid #e4e6ef; border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
   .off-card:hover { border-color: #4263eb; }
+  .off-card.selected { border-color: #4263eb; background: #eef1ff; }
   .off-name { font-size: 14px; font-weight: 500; }
   .off-price { font-size: 15px; font-weight: 700; color: #4263eb; }
+  .auto-badge { font-size: 11px; color: #4263eb; font-weight: 600; margin-left: 8px; }
   .order-card { background: #fff; border: 1px solid #e4e6ef; border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
   .order-title { font-size: 17px; font-weight: 700; padding: 16px 20px; border-bottom: 1px solid #e4e6ef; }
   .order-line { display: flex; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #e4e6ef; font-size: 14px; }
@@ -133,6 +137,7 @@ const CSS = `
   .confirm-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
   .confirm-sub { font-size: 14px; color: #6b7280; }
   .home-card { background: #fff; border: 1px solid #e4e6ef; border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+  .home-card-head { padding: 14px 20px 10px; }
   .home-card-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; cursor: pointer; font-size: 14px; font-weight: 500; border-top: 1px solid #e4e6ef; }
   .home-card-row:hover { background: #f5f6fa; }
   .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
@@ -140,6 +145,10 @@ const CSS = `
   .stat-lbl { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
   .stat-val { font-size: 20px; font-weight: 700; }
 `;
+
+function Wrap({ children }) {
+  return <div className="content-area"><div className="main">{children}</div></div>;
+}
 
 function TaskSidebar({ completed, active, onSelect }) {
   return (
@@ -175,10 +184,6 @@ function TaskBanner({ task, onComplete }) {
   );
 }
 
-function Wrap({ children }) {
-  return <div className="content-area"><div className="main">{children}</div></div>;
-}
-
 function HomeScreen({ onConsent, activeTask, onTaskComplete, sessionId, tracker }) {
   useEffect(() => {
     const t0 = Date.now();
@@ -194,13 +199,14 @@ function HomeScreen({ onConsent, activeTask, onTaskComplete, sessionId, tracker 
         <div style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>Welcome Home</div>
         <div style={{ fontSize: 14, color: "#6b7280" }}>{now.toLocaleDateString("en-US", { weekday: "long" })}, {now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</div>
       </div>
+      <div className="auto-banner">✓ Your preferences have been automatically configured.</div>
       <div className="home-card">
-        <div style={{ padding: "14px 20px 10px" }}>
+        <div className="home-card-head">
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 3 }}>Your Smart Home</div>
-          <div style={{ fontSize: 13, color: "#6b7280" }}>Manage your home automation and privacy settings</div>
+          <div style={{ fontSize: 13, color: "#6b7280" }}>Review your settings or view available offers.</div>
         </div>
         <div className="home-card-row" onClick={() => { tracker.click(); logEvent({ session_id: sessionId, flow: FLOW, event_type: "click", element: "privacy_settings", page: "home", client_timestamp: new Date().toISOString() }); onConsent(); }}>
-          <span>Privacy Settings</span><span style={{ color: "#9ca3af" }}>→</span>
+          <span>Review Settings &amp; Offers</span><span style={{ color: "#9ca3af" }}>→</span>
         </div>
       </div>
       <div className="stats">
@@ -211,7 +217,7 @@ function HomeScreen({ onConsent, activeTask, onTaskComplete, sessionId, tracker 
   );
 }
 
-function ConsentScreen({ acq, setAcq, proc, setProc, onBack, onDone, activeTask, onTaskComplete, sessionId, tracker, saved, setSaved }) {
+function ConsentScreen({ acq, setAcq, proc, setProc, onBack, onDone, activeTask, onTaskComplete, sessionId, tracker }) {
   useEffect(() => {
     const t0 = Date.now();
     logEvent({ session_id: sessionId, flow: FLOW, event_type: "page_enter", page: "privacy_settings", task: activeTask?.id || null, client_timestamp: new Date().toISOString() });
@@ -220,28 +226,19 @@ function ConsentScreen({ acq, setAcq, proc, setProc, onBack, onDone, activeTask,
 
   const [tab, setTab] = useState(activeTask?.id === "task3" ? "usage" : "collection");
 
-  function toggleAcq(id, val) {
-    const prev = acq[id]; const next = prev === val ? null : val;
-    if (prev !== null && prev !== next && next !== null) tracker.override(); else tracker.click();
-    setAcq(a => ({ ...a, [id]: next })); setSaved(false);
-    logEvent({ session_id: sessionId, flow: FLOW, event_type: prev !== null && next !== null ? "override" : "toggle", item: id, value: next, task: activeTask?.id || null, client_timestamp: new Date().toISOString() });
-  }
-  function toggleProc(id, val) {
-    const prev = proc[id]; const next = prev === val ? null : val;
-    if (prev !== null && prev !== next && next !== null) tracker.override(); else tracker.click();
-    setProc(p => ({ ...p, [id]: next })); setSaved(false);
-    logEvent({ session_id: sessionId, flow: FLOW, event_type: prev !== null && next !== null ? "override" : "toggle", item: id, value: next, task: activeTask?.id || null, client_timestamp: new Date().toISOString() });
+  function toggle(id, val, state, setState) {
+    const prev = state[id];
+    const next = prev === val ? null : val;
+    // In automated mode every change is an override
+    tracker.override();
+    setState(s => ({ ...s, [id]: next }));
+    logEvent({ session_id: sessionId, flow: FLOW, event_type: "override", item: id, value: next, task: activeTask?.id || null, client_timestamp: new Date().toISOString() });
   }
   function switchTab(t) {
     if (activeTask?.id === "task2" && t === "usage")      { tracker.error(); logEvent({ session_id: sessionId, flow: FLOW, event_type: "error", element: "tab_switch_wrong", value: t, task: activeTask?.id, client_timestamp: new Date().toISOString() }); }
     if (activeTask?.id === "task3" && t === "collection") { tracker.error(); logEvent({ session_id: sessionId, flow: FLOW, event_type: "error", element: "tab_switch_wrong", value: t, task: activeTask?.id, client_timestamp: new Date().toISOString() }); }
     tracker.click(); setTab(t);
     logEvent({ session_id: sessionId, flow: FLOW, event_type: "tab_switch", from: tab, to: t, task: activeTask?.id || null, client_timestamp: new Date().toISOString() });
-  }
-  function handleSave() { tracker.click(); setSaved(true); logEvent({ session_id: sessionId, flow: FLOW, event_type: "click", element: "save_my_choices", task: activeTask?.id || null, client_timestamp: new Date().toISOString() }); }
-  function handleDone() {
-    if (!saved && activeTask && ["task2","task3"].includes(activeTask.id)) { tracker.error(); logEvent({ session_id: sessionId, flow: FLOW, event_type: "error", element: "done_without_saving", task: activeTask.id, client_timestamp: new Date().toISOString() }); }
-    tracker.click(); onDone();
   }
 
   return (
@@ -250,6 +247,7 @@ function ConsentScreen({ acq, setAcq, proc, setProc, onBack, onDone, activeTask,
       <div className="back" onClick={() => { tracker.click(); onBack(); }}>← Back to Home</div>
       <div className="page-title">Privacy Settings</div>
       <div className="page-sub">Control what data is collected and how it's used</div>
+      <div className="hint-box">✓ Settings have been automatically configured. You can override them below.</div>
       <div className="tabs">
         <div className={`tab${tab === "collection" ? " active" : ""}`} onClick={() => switchTab("collection")}>Data Collection</div>
         <div className={`tab${tab === "usage" ? " active" : ""}`} onClick={() => switchTab("usage")}>Data Usage</div>
@@ -260,12 +258,11 @@ function ConsentScreen({ acq, setAcq, proc, setProc, onBack, onDone, activeTask,
             <div className="cat-row" key={cat.id}>
               <span className="cat-label">{cat.label}</span>
               <div className="da">
-                <button className={`da-btn da-deny${acq[cat.id] === "deny" ? " on" : ""}`} onClick={() => toggleAcq(cat.id, "deny")}>Deny</button>
-                <button className={`da-btn da-allow${acq[cat.id] === "allow" ? " on" : ""}`} onClick={() => toggleAcq(cat.id, "allow")}>Allow</button>
+                <button className={`da-btn da-deny${acq[cat.id] === "deny" ? " on" : ""}`} onClick={() => toggle(cat.id, "deny", acq, setAcq)}>Deny</button>
+                <button className={`da-btn da-allow${acq[cat.id] === "allow" ? " on" : ""}`} onClick={() => toggle(cat.id, "allow", acq, setAcq)}>Allow</button>
               </div>
             </div>
           ))}
-          <div className="save-row"><button className={`btn-save${saved ? " saved" : ""}`} onClick={handleSave}>{saved ? "Saved!" : "Save My Choices"}</button></div>
         </>
       )}
       {tab === "usage" && (
@@ -274,20 +271,19 @@ function ConsentScreen({ acq, setAcq, proc, setProc, onBack, onDone, activeTask,
             <div className="cat-row" key={cat.id}>
               <span className="cat-label">{cat.label}</span>
               <div className="da">
-                <button className={`da-btn da-deny${proc[cat.id] === "deny" ? " on" : ""}`} onClick={() => toggleProc(cat.id, "deny")}>Deny</button>
-                <button className={`da-btn da-allow${proc[cat.id] === "allow" ? " on" : ""}`} onClick={() => toggleProc(cat.id, "allow")}>Allow</button>
+                <button className={`da-btn da-deny${proc[cat.id] === "deny" ? " on" : ""}`} onClick={() => toggle(cat.id, "deny", proc, setProc)}>Deny</button>
+                <button className={`da-btn da-allow${proc[cat.id] === "allow" ? " on" : ""}`} onClick={() => toggle(cat.id, "allow", proc, setProc)}>Allow</button>
               </div>
             </div>
           ))}
-          <div className="save-row"><button className={`btn-save${saved ? " saved" : ""}`} onClick={handleSave}>{saved ? "Saved!" : "Save My Choices"}</button></div>
         </>
       )}
-      <button className="btn-done" onClick={handleDone}>Done – Return to Home</button>
+      <button className="btn-confirm" style={{ marginTop: 16 }} onClick={() => { tracker.click(); onDone(); }}>Done – Return to Home</button>
     </Wrap>
   );
 }
 
-function OffersScreen({ onSelect, onBack, activeTask, onTaskComplete, sessionId, tracker }) {
+function OffersScreen({ onSelect, onBack, activeTask, onTaskComplete, sessionId, tracker, selectedOffer, setSelectedOffer }) {
   useEffect(() => {
     const t0 = Date.now();
     logEvent({ session_id: sessionId, flow: FLOW, event_type: "page_enter", page: "offers", task: activeTask?.id || null, client_timestamp: new Date().toISOString() });
@@ -315,11 +311,19 @@ function OffersScreen({ onSelect, onBack, activeTask, onTaskComplete, sessionId,
       </div>
       {tab === "food" ? (
         <>
-          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Available Offers</div>
-          <div style={{ fontSize: 13, color: "#6b7280", marginBottom: 14 }}>{OFFERS.length} available</div>
+          <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 14 }}>Available Offers</div>
           {OFFERS.map(o => (
-            <div key={o.id} className="off-card" onClick={() => { tracker.click(); logEvent({ session_id: sessionId, flow: FLOW, event_type: "click", element: "select_offer", offer: o.name, task: activeTask?.id || null, client_timestamp: new Date().toISOString() }); onSelect(o); }}>
-              <span className="off-name">{o.emoji} {o.name}</span>
+            <div key={o.id} className={`off-card${selectedOffer?.id === o.id ? " selected" : ""}`}
+              onClick={() => {
+                tracker.click();
+                setSelectedOffer(o);
+                logEvent({ session_id: sessionId, flow: FLOW, event_type: "click", element: "select_offer", offer: o.name, task: activeTask?.id || null, client_timestamp: new Date().toISOString() });
+                onSelect(o);
+              }}>
+              <span className="off-name">
+                {o.emoji} {o.name}
+                {o.id === TOP_OFFER.id && <span className="auto-badge">Auto-selected</span>}
+              </span>
               <span className="off-price">${o.price.toFixed(2)}</span>
             </div>
           ))}
@@ -347,10 +351,11 @@ function OrderScreen({ offer, onPlace, onBack, activeTask, onTaskComplete, sessi
     <Wrap>
       <TaskBanner task={activeTask} onComplete={onTaskComplete} />
       <div className="back" onClick={handleBack}>← Back to Offers</div>
+      <div className="hint-box">✓ Order automatically prepared based on your preferences.</div>
       <div className="order-card">
         <div className="order-title">Order Summary</div>
         <div className="order-line"><span>Item</span><span>{offer.name}</span></div>
-        <div className="order-line"><span>Delivery</span><span>Standard</span></div>
+        <div className="order-line"><span>Delivery</span><span>Standard (auto-selected)</span></div>
         <div className="order-line"><span>Delivery Fee</span><span>Free</span></div>
         <div className="order-line"><span>Total</span><span>${offer.price.toFixed(2)}</span></div>
       </div>
@@ -385,19 +390,21 @@ export default function App() {
   const tracker   = useRef(createTracker(sessionId)).current;
 
   const [screen,         setScreen]         = useState("consent");
-  const [offer,          setOffer]          = useState(null);
+  const [offer,          setOffer]          = useState(TOP_OFFER); // auto-selected
+  const [selectedOffer,  setSelectedOffer]  = useState(TOP_OFFER);
   const [activeTask,     setActiveTask]     = useState(null);
   const [completed,      setCompleted]      = useState([]);
   const [orderConfirmed, setOrderConfirmed] = useState(false);
-  const [saved,          setSaved]          = useState(false);
 
-  const [acq,  setAcq]  = useState({ sensors: null, behavior: null, purchases: null });
-  const [proc, setProc] = useState({ food: null, home: null, wellness: null });
+  // Automated: all allow
+  const [acq,  setAcq]  = useState({ ...DEFAULT_ACQ });
+  const [proc, setProc] = useState({ ...DEFAULT_PROC });
 
   function startTask(task) {
     if (completed.includes(task.id)) return;
-    setSaved(false);
+    // Task 2: reset acq to deny
     if (task.id === "task2") setAcq({ sensors: "deny", behavior: "deny", purchases: "deny" });
+    // Task 3: reset proc to deny
     if (task.id === "task3") setProc({ food: "deny", home: "deny", wellness: "deny" });
     tracker.start(task.id);
     setActiveTask(task);
@@ -420,9 +427,9 @@ export default function App() {
       <div className="app">
         <TaskSidebar completed={completed} active={activeTask} onSelect={startTask} />
         {screen === "home"    && <HomeScreen    onConsent={() => setScreen("consent")} activeTask={activeTask} onTaskComplete={handleTaskComplete} sessionId={sessionId} tracker={tracker} />}
-        {screen === "consent" && <ConsentScreen acq={acq} setAcq={setAcq} proc={proc} setProc={setProc} onBack={() => setScreen("home")} onDone={() => setScreen("offers")} activeTask={activeTask} onTaskComplete={handleTaskComplete} sessionId={sessionId} tracker={tracker} saved={saved} setSaved={setSaved} />}
-        {screen === "offers"  && <OffersScreen  onSelect={o => { setOffer(o); setScreen("order"); }} onBack={() => setScreen("consent")} activeTask={activeTask} onTaskComplete={handleTaskComplete} sessionId={sessionId} tracker={tracker} />}
-        {screen === "order"   && <OrderScreen   offer={offer || OFFERS[0]} onPlace={() => setScreen("confirm")} onBack={() => setScreen("offers")} activeTask={activeTask} onTaskComplete={handleTaskComplete} sessionId={sessionId} tracker={tracker} setOrderConfirmed={setOrderConfirmed} />}
+        {screen === "consent" && <ConsentScreen acq={acq} setAcq={setAcq} proc={proc} setProc={setProc} onBack={() => setScreen("home")} onDone={() => setScreen("offers")} activeTask={activeTask} onTaskComplete={handleTaskComplete} sessionId={sessionId} tracker={tracker} />}
+        {screen === "offers"  && <OffersScreen  onSelect={o => { setOffer(o); setScreen("order"); }} onBack={() => setScreen("consent")} activeTask={activeTask} onTaskComplete={handleTaskComplete} sessionId={sessionId} tracker={tracker} selectedOffer={selectedOffer} setSelectedOffer={setSelectedOffer} />}
+        {screen === "order"   && <OrderScreen   offer={offer} onPlace={() => setScreen("confirm")} onBack={() => setScreen("offers")} activeTask={activeTask} onTaskComplete={handleTaskComplete} sessionId={sessionId} tracker={tracker} setOrderConfirmed={setOrderConfirmed} />}
         {screen === "confirm" && <ConfirmScreen onHome={() => setScreen("consent")} activeTask={activeTask} onTaskComplete={handleTaskComplete} />}
       </div>
     </>
