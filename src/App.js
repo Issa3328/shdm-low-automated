@@ -19,7 +19,6 @@ const Cpu          = (p) => <Svg {...p}><rect width="16" height="16" x="4" y="4"
 const SUPABASE_URL      = "https://iljzwxwopxuzpgkjivmn.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_KEoCJtCLyGTJjqB1phGy2Q_v3PftUYH";
 const FLOW              = "low_automated";
-const SURVEY_RETURN_URL = "https://www.surveymonkey.ca/r/5C7MWMD";
 
 const MODE_LABEL = "Info: Low · Control: Automated";
 const VISIBILITY = "low";   // low | medium | high
@@ -379,11 +378,8 @@ export default function App() {
     tracker.action("order_place", { page:"order", target:selectedOffer?.name, details:{ order_num:num } });
     syncTasks(tracker.complete(4, "order_place", { offer:selectedOffer?.name, orderPlaced:true }));
     setStage("complete");
-    setTimeout(() => {
-      const url = `${SURVEY_RETURN_URL}?session=${encodeURIComponent(tracker.participantId)}`;
-      tracker.event("survey_redirect", { page:"complete", details:{ url } });
-      window.location.href = url;
-    }, 2500);
+    // participant returns to the SurveyMonkey tab (still open) for the remaining questions
+    tracker.event("study_finished", { page:"complete" });
   };
 
   const handleReturnHome = () => {
@@ -496,7 +492,7 @@ export default function App() {
                 <p className="flex items-center gap-1.5 justify-center font-medium mb-1"><Zap className="w-3.5 h-3.5" /> Smart Home System Actions</p>
                 <p>Privacy configured · Preferences analyzed · Best offer selected · Order placed</p>
               </div>
-              <p className="text-xs text-gray-400 mb-6">Redirecting to survey…</p>
+              <p className="text-sm font-medium text-gray-700 mb-6">All tasks completed. Please close this tab and return to the survey to answer the remaining questions.</p>
               <button
                 onClick={handleReturnHome}
                 className="w-full py-3 rounded-lg font-medium transition-all bg-blue-600 text-white hover:bg-blue-700"
